@@ -1,0 +1,8 @@
+[ClassVersion("1.0.0.0"), FriendlyName("GenericInstallSetting")]
+class MSFT_GenericInstallSetting : OMI_BaseResource
+{
+    [Key, Description("Display Name of the Software to install.")] String ProgramName;
+    [Key, Description("Full path to the executable fiel to install (.exe, .msi, etc.). UNC paths are supported.")] String InstallFilePath;
+    [Write, Description("Arguments string for the executable.")] String Arguments;
+    [Write, Description("Only accepted value is 'Present'."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+};
