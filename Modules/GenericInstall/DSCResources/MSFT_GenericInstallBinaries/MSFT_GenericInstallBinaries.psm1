@@ -23,23 +23,28 @@ function Get-TargetResource
 
     $UserPrograms = Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
     $MachinePrograms = Get-Item 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object {$null -ne $_.GetValue("DisplayName")}
-    $AllPrograms = $UserPrograms + $MachinePrograms
-    foreach ($program in $AllPrograms)
-    {
-        $currentProgramName = $program.GetValue("DisplayName")
 
-        # Software is already installed;
-        if ($currentProgramName -eq $ProgramName)
+    if ($null -ne $UserPrograms -and $null -ne $MachinePrograms)
+    {
+        $AllPrograms = $UserPrograms + $MachinePrograms
+        foreach ($program in $AllPrograms)
         {
-            Write-Verbose "$ProgramName is already installed on the machine."
-            return @{
-                InstallFilePath = $InstallFilePath
-                ProgramName     = $ProgramName
-                Arguments       = $Arguments
-                Ensure          = 'Present'
+            $currentProgramName = $program.GetValue("DisplayName")
+
+            # Software is already installed;
+            if ($currentProgramName -eq $ProgramName)
+            {
+                Write-Verbose "$ProgramName is already installed on the machine."
+                return @{
+                    InstallFilePath = $InstallFilePath
+                    ProgramName     = $ProgramName
+                    Arguments       = $Arguments
+                    Ensure          = 'Present'
+                }
             }
         }
     }
+
     Write-Verbose "$ProgramName was not found on the machine."
     return @{
             InstallFilePath = $InstallFilePath
@@ -73,10 +78,10 @@ function Set-TargetResource
     )
 
     $current = Get-TargetResource @PSBoundParameters
-    if ($Ensure = 'Present' -and $current -eq 'Absent')
+    if ($Ensure -eq 'Present' -and $current.Ensure -eq 'Absent')
     {
         Write-Verbose "Installing $ProgramName running: Start-Process -FilePath $InstallFilePath -ArgumentList $Arguments -Wait -PassThru"
-        $setup = Start-Process -FilePath $InstallFilePath -ArgumentList $Arguments -Wait -PassThru
+        Start-Process -FilePath $InstallFilePath -ArgumentList $Arguments -Wait -PassThru | Out-Null
     }
 }
 
@@ -104,7 +109,7 @@ function Test-TargetResource
     )
 
     $current = Get-TargetResource @PSBoundParameters
-
+    Write-Verbose -Message "Test-TargetResource: [Current]$($current.Ensure)  vs  [Desired]$Ensure"
     if ($current.Ensure -eq $Ensure)
     {
         return $true
@@ -144,14 +149,25 @@ function Export-TargetResource
         {
             Write-Information "        * Found custom Rule Map entry for program $programName"
             $params.InstallFilePath = Join-Path -Path $RuleMap.Settings.BinaryFolder -ChildPath $customEntry.InstallerFile
-        }
+            $params.Add("Arguments", $customEntry.Arguments)
+            $results = Get-TargetResource @params
+            [void]$sb.AppendLine('        GenericInstallBinaries ' + (New-Guid).ToString())
+            [void]$sb.AppendLine('        {')
+            $dscBlock = Get-DSCBlock -Params $results -ModulePath $PSScriptRoot
+            [void]$sb.Append($dscBlock)
+            [void]$sb.AppendLine('        }')
 
-        $results = Get-TargetResource @params
-        [void]$sb.AppendLine('        GenericInstallBinaries ' + (New-Guid).ToString())
-        [void]$sb.AppendLine('        {')
-        $dscBlock = Get-DSCBlock -Params $results -ModulePath $PSScriptRoot
-        [void]$sb.Append($dscBlock)
-        [void]$sb.AppendLine('        }')
+            # Add Follow-up script if any
+            if ($null -ne $customEntry.FollowUpScript)
+            {
+                [void]$sb.AppendLine('        Script ' + (New-Guid).ToString())
+                [void]$sb.AppendLine('        {')
+                [void]$sb.AppendLine('             GetScript = {' + $customEntry.FollowUpScript.Get + '}')
+                [void]$sb.AppendLine('             SetScript = {' + $customEntry.FollowUpScript.Set + '}')
+                [void]$sb.AppendLine('             TestScript = {$state = [scriptblock]::Create($GetScript).Invoke(); if($state["Ensure"] -eq "Present"){return $true}return $false;}')
+                [void]$sb.AppendLine('        }')
+            }
+        }
         $i++
     }
 

@@ -5,7 +5,11 @@ function Export-GenericInstallConfiguration
     param (
         [Parameter()]
         [System.String]
-        $RuleMapPath
+        $RuleMapPath,
+
+        [Parameter()]
+        [System.String]
+        $Path
     )
 
     $RuleMap = Import-PowerShellDataFile -Path $RuleMapPath
@@ -31,7 +35,7 @@ function Export-GenericInstallConfiguration
 
     [void]$sb.AppendLine("    }")
     [void]$sb.AppendLine("}")
-    [voic]$sb.AppendLine("GenericInstallations")
+    [void]$sb.AppendLine("GenericInstallations")
 
     #region Prompt the user for a location to save the extract and generate the files
     if ($null -eq $Path -or "" -eq $Path)
@@ -63,7 +67,7 @@ function Export-GenericInstallConfiguration
     {
         $OutputDSCPath += "\"
     }
-    $outputDSCFile = $OutputDSCPath + "GenericInstallations.ps1"
+    $outputDSCFile = $OutputDSCPath + "GenericInstallation.DSC.ps1"
     $sb.ToString() | Out-File $outputDSCFile
 
     Invoke-Item -Path $OutputDSCPath
