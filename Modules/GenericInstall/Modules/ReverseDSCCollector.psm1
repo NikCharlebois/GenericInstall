@@ -15,10 +15,28 @@ function Export-GenericInstallConfiguration
     $RuleMap = Import-PowerShellDataFile -Path $RuleMapPath
 
     $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine("Param(")
+    [void]$sb.AppendLine("    [Parameter()]")
+    [void]$sb.AppendLine("    [System.String]")
+    [void]$sb.AppendLine("    `$MachineName,")
+    [void]$sb.AppendLione("")
+    [void]$sb.AppendLine("    [Parameter()]")
+    [void]$sb.AppendLine("    [System.Management.Automation.PSCredential]")
+    [void]$sb.AppendLine("    `$LocalAdminAccount")
+    [void]$sb.AppendLine(")")
     [void]$sb.AppendLine("Configuration GenericInstallations")
     [void]$sb.AppendLine("{")
+    [void]$sb.AppendLine("    Param(")
+    [void]$sb.AppendLine("        [Parameter()]")
+    [void]$sb.AppendLine("        [System.String]")
+    [void]$sb.AppendLine("        `$MachineName,")
+    [void]$sb.AppendLione("")
+    [void]$sb.AppendLine("        [Parameter()]")
+    [void]$sb.AppendLine("        [System.Management.Automation.PSCredential]")
+    [void]$sb.AppendLine("        `$LocalAdminAccount")
+    [void]$sb.AppendLine("    )")
     [void]$sb.AppendLine("    Import-DSCResource -ModuleName GenericInstall")
-    [void]$sb.AppendLine("    Node localhost")
+    [void]$sb.AppendLine("    Node `$MachineName")
     [void]$sb.AppendLine("    {")
 
     $ResourcesPath = Join-Path -Path $PSScriptRoot `
@@ -35,7 +53,16 @@ function Export-GenericInstallConfiguration
 
     [void]$sb.AppendLine("    }")
     [void]$sb.AppendLine("}")
-    [void]$sb.AppendLine("GenericInstallations")
+
+    [void]$sb.AppendLine("`$ConfigData = @{")
+    [void]$sb.AppendLine("    AllNodes = @(")
+    [void]$sb.AppendLine("        @{")
+    [void]$sb.AppendLine("            NodeName = `$MachineName")
+    [void]$sb.AppendLine("            PSDSCAllowPlaintextPassword = `$True")
+    [void]$sb.AppendLine("        }")
+    [void]$sb.AppendLine("    )")
+    [void]$sb.AppendLine("}")
+    [void]$sb.AppendLine("GenericInstallations -MachineName `$MachineName -LocalAdminAccount `$LocalAdminAccount -ConfigurationData `$ConfigData")
 
     #region Prompt the user for a location to save the extract and generate the files
     if ($null -eq $Path -or "" -eq $Path)

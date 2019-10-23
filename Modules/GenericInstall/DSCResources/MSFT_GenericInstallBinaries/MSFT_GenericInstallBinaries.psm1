@@ -21,26 +21,38 @@ function Get-TargetResource
         $Ensure = 'Present'
     )
 
-    $UserPrograms = Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
-    $MachinePrograms = Get-Item 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object {$null -ne $_.GetValue("DisplayName")}
+    $UserPrograms = Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue
+    $MachinePrograms = Get-Item 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'  -ErrorAction SilentlyContinue
+    if ($null -ne $MachinePrograms)
+    {
+        $MachinePrograms = $MachinePrograms | Where-Object {$null -ne $_.GetValue("DisplayName")}
+    }
 
     if ($null -ne $UserPrograms -and $null -ne $MachinePrograms)
     {
         $AllPrograms = $UserPrograms + $MachinePrograms
-        foreach ($program in $AllPrograms)
-        {
-            $currentProgramName = $program.GetValue("DisplayName")
+    }
+    elseif($null -eq $UserPrograms)
+    {
+        $AllPrograms = $MachinePrograms
+    }
+    elseif($null -eq $MachinePrograms)
+    {
+        $AllPrograms = $UserPrograms
+    }
+    foreach ($program in $AllPrograms)
+    {
+        $currentProgramName = $program.GetValue("DisplayName")
 
-            # Software is already installed;
-            if ($currentProgramName -eq $ProgramName)
-            {
-                Write-Verbose "$ProgramName is already installed on the machine."
-                return @{
-                    InstallFilePath = $InstallFilePath
-                    ProgramName     = $ProgramName
-                    Arguments       = $Arguments
-                    Ensure          = 'Present'
-                }
+        # Software is already installed;
+        if ($currentProgramName -eq $ProgramName)
+        {
+            Write-Verbose "$ProgramName is already installed on the machine."
+            return @{
+                InstallFilePath = $InstallFilePath
+                ProgramName     = $ProgramName
+                Arguments       = $Arguments
+                Ensure          = 'Present'
             }
         }
     }
@@ -155,6 +167,7 @@ function Export-TargetResource
             [void]$sb.AppendLine('        {')
             $dscBlock = Get-DSCBlock -Params $results -ModulePath $PSScriptRoot
             [void]$sb.Append($dscBlock)
+            [void]$sb.AppendLine("            PSDSCRunAsCredential = `$LocalAdminAccount")
             [void]$sb.AppendLine('        }')
 
             # Add Follow-up script if any
