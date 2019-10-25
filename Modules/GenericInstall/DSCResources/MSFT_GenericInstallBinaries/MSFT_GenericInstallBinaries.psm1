@@ -30,7 +30,15 @@ function Get-TargetResource
 
     if ($null -ne $UserPrograms -and $null -ne $MachinePrograms)
     {
-        $AllPrograms = $UserPrograms + $MachinePrograms
+        if ($UserPrograms.GetType().Name -eq 'RegistryKey')
+        {
+            $AllPrograms = $MachinePrograms
+            $AllPrograms += $UserPrograms
+        }
+        else
+        {
+            $AllPrograms = $UserPrograms + $MachinePrograms
+        }
     }
     elseif($null -eq $UserPrograms)
     {
@@ -140,9 +148,33 @@ function Export-TargetResource
     )
 
     $InformationPreference = 'Continue'
-    $UserPrograms = Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
-    $MachinePrograms = Get-Item 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object {$_.GetValue("DisplayName") -ne $null}
-    $AllPrograms = $UserPrograms + $MachinePrograms
+    $UserPrograms = Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue
+    $MachinePrograms = Get-Item 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue
+    if ($null -ne $MachinePrograms)
+    {
+        $MachinePrograms = $MachinePrograms | Where-Object {$null -ne $_.GetValue("DisplayName")}
+    }
+
+    if ($null -ne $UserPrograms -and $null -ne $MachinePrograms)
+    {
+        if ($UserPrograms.GetType().Name -eq 'RegistryKey')
+        {
+            $AllPrograms = $MachinePrograms
+            $AllPrograms += $UserPrograms
+        }
+        else
+        {
+            $AllPrograms = $UserPrograms + $MachinePrograms
+        }
+    }
+    elseif($null -eq $UserPrograms)
+    {
+        $AllPrograms = $MachinePrograms
+    }
+    elseif($null -eq $MachinePrograms)
+    {
+        $AllPrograms = $UserPrograms
+    }
     $sb = [System.Text.StringBuilder]::new()
     $i = 1
     foreach ($program in $AllPrograms)
